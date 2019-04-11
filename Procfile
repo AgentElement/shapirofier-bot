@@ -1,1 +1,1 @@
-web: python shapirofier.py
+worker: python shapirofier.py
