@@ -15,7 +15,7 @@ class Bot:
                                   password=auth.password,
                                   user_agent='Non-political shapirofier-bot by u/AgentElement and u/agenttux.'
                                   )
-        self.subreddits = self.reddit.subreddit('copypasta')
+        self.subreddits = self.reddit.subreddit(auth.subreddit)
 
     @staticmethod
     def shapirofy(comment_contents):
