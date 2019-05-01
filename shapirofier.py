@@ -1,6 +1,7 @@
 # encoding: utf-8
 
 import praw
+import praw.models
 import re
 import authenticate as auth
 import time
@@ -13,8 +14,10 @@ class Bot:
                                   client_secret=auth.client_secret,
                                   username=auth.username,
                                   password=auth.password,
-                                  user_agent='Non-political shapirofier-bot by u/AgentElement and u/agenttux.'
+                                  user_agent='Non-political shapirofier-bot by u/AgentElement'
                                   )
+
+        self.keyphrase = '!shapirofy'
         self.subreddits = self.reddit.subreddit(auth.subreddit)
 
     @staticmethod
@@ -31,42 +34,57 @@ class Bot:
         return "".join(word + ' ' for word in words)
 
     @staticmethod
-    def add_submission(submission):
-        with open("__submission_cache.txt", 'a') as cache:
-            cache.write("{} {}\n".format(submission.id, int(submission.created)))
-
-    @staticmethod
-    def check_if_replied(submission):
-        for comment in submission.comments:
-            if comment.author.name == auth.username:
+    def check_if_replied(comment):
+        comment.refresh()
+        for reply in comment.replies:
+            if reply.author is None:
+                continue
+            if reply.author.name == auth.username:
                 return True
         return False
 
     @staticmethod
-    def check_submission(submission):
-        with open("__submission_cache.txt") as cache:
-            for replied in cache.readlines():
-                if submission.id == replied.split()[0]:
-                    return True
+    def check_if_replied_submission(submission):  # TODO needs rewrite
+        for comment in submission.comments:
+            if isinstance(comment, praw.models.MoreComments):
+                for more_comments in comment.comments():
+                    if Bot.check_if_replied(more_comments):
+                        return True
+                    return False
+            if Bot.check_if_replied(comment):
+                return True
         return False
 
+    def return_parent_text(self, comment):
+        parent_id = comment.parent_id
+        if parent_id[0:2] == 't3':
+            return comment.submission.selftext
+        else:
+            return self.reddit.comment(id=parent_id[3:]).body
+
     def run(self):
-        for submission in self.subreddits.stream.submissions():
+        for comment in self.subreddits.stream.comments():
             try:
-                if submission.selftext == '' or self.check_if_replied(submission):
+                if not comment.body == self.keyphrase or self.check_if_replied(comment):
                     continue
-                print(submission.title)
-                reply = self.shapirofy(submission.selftext)
-                submission.reply(reply).disable_inbox_replies()
+
+                text = self.return_parent_text(comment)
+
+                if text is None or text == '':
+                    continue
+
+                comment.reply(self.shapirofy(text))
+                print(comment.id)
+
             except Exception as e:
                 print(e)
                 time.sleep(10)
 
     def test_for_replies(self):
-        for submission in self.subreddits.hot(limit=25):
-            print(submission.title)
-            if self.check_if_replied(submission):
-                print('***')
+        for submission in self.subreddits.new(limit=25):
+            print(submission.id,
+                  '****' if self.check_if_replied_submission(submission) else '    ',
+                  submission.title)
 
 
 def main():
