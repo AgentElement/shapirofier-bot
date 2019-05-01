@@ -73,7 +73,7 @@ class Bot:
                 if text is None or text == '':
                     continue
 
-                comment.reply(self.shapirofy(text))
+                comment.reply(self.shapirofy(text)).disable_inbox_replies()
                 print(comment.id)
 
             except Exception as e:
